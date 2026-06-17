@@ -22,7 +22,13 @@ class Config:
     
     # Determine default base URL based on provider if not explicitly specified
     _provider_lower = os.getenv("LLM_PROVIDER", "gemini").lower()
-    _default_url = "https://openrouter.ai/api/v1" if _provider_lower == "openrouter" else "https://api.openai.com/v1"
+    if _provider_lower == "openrouter":
+        _default_url = "https://openrouter.ai/api/v1"
+    elif _provider_lower == "opencode":
+        _default_url = "https://opencode.ai/zen/v1"
+    else:
+        _default_url = "https://api.openai.com/v1"
+        
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", _default_url)
 
     try:
@@ -41,10 +47,10 @@ class Config:
         if provider == "gemini":
             if not cls.GEMINI_API_KEY:
                 errors.append("GEMINI_API_KEY is not set.")
-        elif provider in ("openai", "openrouter"):
+        elif provider in ("openai", "openrouter", "opencode"):
             if not cls.OPENAI_API_KEY:
                 errors.append(f"OPENAI_API_KEY is not set (required for LLM provider '{provider}').")
         else:
-            errors.append(f"Unsupported LLM_PROVIDER: '{cls.LLM_PROVIDER}'. Supported: 'gemini', 'openai', 'openrouter'.")
+            errors.append(f"Unsupported LLM_PROVIDER: '{cls.LLM_PROVIDER}'. Supported: 'gemini', 'openai', 'openrouter', 'opencode'.")
             
         return errors

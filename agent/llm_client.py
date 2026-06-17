@@ -25,7 +25,7 @@ class LLMClient:
         """Returns True if the client is configured to run in mock/simulation mode."""
         if self.provider == "gemini":
             return not self.gemini_key or "mock" in self.gemini_key.lower()
-        elif self.provider in ("openai", "openrouter"):
+        elif self.provider in ("openai", "openrouter", "opencode"):
             return not self.openai_key or "mock" in self.openai_key.lower()
         return True
 
@@ -53,7 +53,7 @@ class LLMClient:
             )
             return response.text.strip()
             
-        elif self.provider in ("openai", "openrouter"):
+        elif self.provider in ("openai", "openrouter", "opencode"):
             if not self.openai_key:
                 raise ValueError(f"{self.provider.upper()} API key is not configured.")
                 
