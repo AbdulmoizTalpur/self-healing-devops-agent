@@ -1,0 +1,31 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+env_path = Path(__file__).resolve().parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    load_dotenv()
+
+class Config:
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    
+    try:
+        CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
+    except ValueError:
+        CONFIDENCE_THRESHOLD = 0.65
+
+    @classmethod
+    def validate(cls):
+        """Validate critical environment variables."""
+        errors = []
+        if not cls.GITHUB_TOKEN:
+            errors.append("GITHUB_TOKEN is not set.")
+        if not cls.GEMINI_API_KEY:
+            errors.append("GEMINI_API_KEY is not set.")
+        return errors

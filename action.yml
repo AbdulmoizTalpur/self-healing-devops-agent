@@ -1,0 +1,46 @@
+name: 'Self-Healing CI/CD DevOps Agent'
+description: 'Automatically diagnoses and repairs failing tests in your workflows using Google Gemini.'
+author: 'Moiz'
+branding:
+  icon: 'tool'
+  color: 'purple'
+
+inputs:
+  gemini_api_key:
+    description: 'Google Gemini API Key'
+    required: true
+  github_token:
+    description: 'GitHub Personal Access Token or GITHUB_TOKEN'
+    required: false
+    default: ${{ github.token }}
+  mock:
+    description: 'Simulate API calls for demo runs'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Run Self-Healing Agent
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+      run: |
+        python ${{ github.action_path }}/agent/main.py \
+          --repo "${{ github.repository }}" \
+          --run-id "${{ github.run_id }}" \
+          --branch "${{ github.ref_name }}" \
+          --local-dir "." \
+          ${{ inputs.mock == 'true' && '--mock' || '' }}
