@@ -1,13 +1,11 @@
 from typing import Dict, List, Optional
-from google import genai
-from google.genai import types
 from agent.config import Config
 from agent.schemas import FailureReport, Diagnosis
+from agent.llm_client import LLMClient
 
 class DiagnosisAgent:
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or Config.GEMINI_API_KEY
-        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+    def __init__(self, llm_client: Optional[LLMClient] = None):
+        self.client = llm_client or LLMClient()
 
     def diagnose_failure(
         self, 
@@ -22,8 +20,8 @@ class DiagnosisAgent:
         for filepath, content in code_context.items():
             formatted_context += f"\nFile: {filepath}\n```python\n{content}\n```\n"
 
-        if not self.client or "mock" in (self.api_key or "").lower():
-            print("[Warning] GEMINI_API_KEY is missing or mock. Using mock diagnosis.")
+        if self.client.is_mock:
+            print("[Warning] Running in mock mode. Using mock diagnosis.")
             # Mock diagnosis behavior for local testing
             suspected_files = report.suspected_files or ["calculator.py"]
             proposed_fix = "Fix the mathematical calculations to return the correct value."
@@ -66,25 +64,19 @@ class DiagnosisAgent:
         """
 
         try:
-            response = self.client.models.generate_content(
-                model=Config.GEMINI_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=Diagnosis,
-                    temperature=0.1
-                )
+            diagnosis = self.client.generate_structured(
+                prompt=prompt,
+                response_schema=Diagnosis,
+                temperature=0.1
             )
-            diagnosis = Diagnosis.model_validate_json(response.text)
-            
             # Post-process with additional safety rules
             self._apply_safety_rules(diagnosis, code_context)
             return diagnosis
             
         except Exception as e:
-            print(f"[Error] Gemini diagnosis failed: {e}")
+            print(f"[Error] Diagnosis failed: {e}")
             return Diagnosis(
-                root_cause=f"Gemini analysis failed. Error: {str(e)}",
+                root_cause=f"Analysis failed. Error: {str(e)}",
                 evidence_from_logs=[],
                 evidence_from_code=[],
                 proposed_fix="Manual intervention required.",

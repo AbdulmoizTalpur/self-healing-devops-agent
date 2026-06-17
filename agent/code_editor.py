@@ -1,16 +1,14 @@
 import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
-from google import genai
-from google.genai import types
 from agent.config import Config
 from agent.schemas import Diagnosis
+from agent.llm_client import LLMClient
 
 class CodeEditor:
-    def __init__(self, repo_path: str, api_key: Optional[str] = None):
+    def __init__(self, repo_path: str, llm_client: Optional[LLMClient] = None):
         self.repo_path = Path(repo_path).resolve()
-        self.api_key = api_key or Config.GEMINI_API_KEY
-        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+        self.client = llm_client or LLMClient()
         self.backups: Dict[Path, str] = {}
 
     def backup_files(self, files_to_modify: List[str]):
@@ -57,8 +55,8 @@ class CodeEditor:
                 else:
                     original_content = ""
 
-            if not self.client or "mock" in (self.api_key or "").lower():
-                print(f"[Warning] GEMINI_API_KEY is missing or mock. Simulating mock fix on {filename}.")
+            if self.client.is_mock:
+                print(f"[Warning] Running in mock mode. Simulating mock fix on {filename}.")
                 # Apply a dummy fix if mock mode is on
                 # Let's perform a simple logical fix for our demo app if present
                 fixed_content = original_content
@@ -103,14 +101,11 @@ class CodeEditor:
             """
 
             try:
-                response = self.client.models.generate_content(
-                    model=Config.GEMINI_MODEL,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0.1
-                    )
+                raw_response = self.client.generate_content(
+                    prompt=prompt,
+                    temperature=0.1
                 )
-                fixed_content = response.text.strip()
+                fixed_content = raw_response.strip()
                 
                 # Strip leading/trailing python markdown formatting if the model output them anyway
                 if fixed_content.startswith("```"):
@@ -119,7 +114,7 @@ class CodeEditor:
                         lines = lines[1:]
                     if lines and lines[-1].strip() == "```":
                         lines = lines[:-1]
-                    fixed_content = "\n".join(lines)
+                    fixed_content = "\n".join(lines).strip()
                 
                 # Write to disk
                 file_path.write_text(fixed_content, encoding="utf-8")

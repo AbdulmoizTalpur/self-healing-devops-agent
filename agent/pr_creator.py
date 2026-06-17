@@ -1,15 +1,13 @@
 from typing import List, Optional
-from google import genai
-from google.genai import types
 from agent.config import Config
 from agent.github_client import GitHubClient
 from agent.schemas import FailureReport, Diagnosis, VerificationResult, PRWalkthrough
+from agent.llm_client import LLMClient
 
 class PRCreator:
-    def __init__(self, github_client: GitHubClient, api_key: Optional[str] = None):
+    def __init__(self, github_client: GitHubClient, llm_client: Optional[LLMClient] = None):
         self.gh_client = github_client
-        self.api_key = api_key or Config.GEMINI_API_KEY
-        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+        self.client = llm_client or LLMClient()
 
     def generate_pr_walkthrough(
         self, 
@@ -19,8 +17,8 @@ class PRCreator:
         files_changed: List[str]
     ) -> PRWalkthrough:
         """Call Gemini to draft a structured PR walkthrough."""
-        if not self.client or "mock" in (self.api_key or "").lower():
-            print("[Warning] GEMINI_API_KEY is missing or mock. Generating default PR details.")
+        if self.client.is_mock:
+            print("[Warning] Running in mock mode. Generating default PR details.")
             return PRWalkthrough(
                 title=f"[Self-Healing Agent] Fix CI failure in {report.workflow_name}/{report.failed_job}",
                 failure_summary=report.error_summary,
@@ -60,16 +58,12 @@ class PRCreator:
         """
 
         try:
-            response = self.client.models.generate_content(
-                model=Config.GEMINI_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=PRWalkthrough,
-                    temperature=0.2
-                )
+            walkthrough = self.client.generate_structured(
+                prompt=prompt,
+                response_schema=PRWalkthrough,
+                temperature=0.2
             )
-            return PRWalkthrough.model_validate_json(response.text)
+            return walkthrough
         except Exception as e:
             print(f"[Error] Failed to generate structured PR walkthrough: {e}")
             # Fallback
