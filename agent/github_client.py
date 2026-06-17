@@ -78,6 +78,19 @@ class GitHubClient:
     def commit_and_push_changes(self, repo_path: str, branch_name: str, commit_message: str, files: List[str]) -> bool:
         """Commit modified files and push the branch to origin."""
         try:
+            # Ensure git user identity is configured (e.g. inside CI runners)
+            user_configured = True
+            try:
+                res = subprocess.run(["git", "config", "user.name"], cwd=repo_path, capture_output=True, text=True)
+                if not res.stdout.strip():
+                    user_configured = False
+            except Exception:
+                user_configured = False
+                
+            if not user_configured:
+                subprocess.run(["git", "config", "user.name", "github-actions[bot]"], cwd=repo_path, check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], cwd=repo_path, check=True, capture_output=True)
+
             for file in files:
                 subprocess.run(["git", "add", file], cwd=repo_path, check=True, capture_output=True)
                 
